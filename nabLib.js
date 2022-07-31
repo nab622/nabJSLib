@@ -23,12 +23,138 @@ SOFTWARE.
 */
 
 
+
+
+// -------------------- GLOBALS --------------------
+// -------------------- GLOBALS --------------------
+
 // To get trace data from warnings and make errors fatal, set this to true
 debug = false
 
-
 warningCount = 0
 errorCount = 0
+
+fileSizeDenominations = [ 'byt', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB' ]
+fileSizeColors = [ '33B', '3BB', '3B3', 'BB3', 'B33', 'B3B', '999', 'FFF' ]
+
+
+
+// -------------------- CSS --------------------
+// -------------------- CSS --------------------
+
+function getCSSVar(variableName) {
+	// This is used to get CSS variable values from :root
+	return getComputedStyle(document.querySelector(':root')).getPropertyValue('--' + variableName)
+}
+
+function changeCSSVar(variableName, newValue) {
+	// This is used to set CSS variable values in :root
+	document.querySelector(':root').style.setProperty('--' + variableName, newValue)
+}
+
+
+
+// -------------------- COLORS --------------------
+// -------------------- COLORS --------------------
+
+function interpolateHexColors(inputColor, changeColor, balance = 0.5) {
+	inputColor = readColor(inputColor)
+	changeColor = readColor(changeColor)
+	balance = clamp(balance, 0, 1)
+
+	let num1 = null
+	let num2 = null
+	let output = ''
+
+	for(let i = 0; i < 8; i += 2) {
+		num1 = null
+		num2 = null
+		if(inputColor.length >= i + 2) num1 = parseInt(inputColor.substring(i, i + 2), 16)
+		if(changeColor.length >= i + 2) num2 = parseInt(changeColor.substring(i, i + 2), 16)
+
+		if(num1 == null && num2 == null) {
+			break
+		} else if(num1 == null) {
+			output += leadingString(num2.toString(16), 2, '0')
+			continue
+		} else if(num2 == null) {
+			output += leadingString(num1.toString(16), 2, '0')
+			continue
+		}
+
+		output += leadingString((Math.floor(num1 + ((num2 - num1) * balance))).toString(16), 2, '0')
+	}
+
+	return output
+}
+
+function interpolateHexColorInRange(min, max, value, color1, color2) {
+	// This function is used to dynamically color an object based on it's value within a range
+	// This is very useful for things like file sizes
+	color1 = readColor(color1)
+	color2 = readColor(color2)
+
+	if(value < min) return color1
+	if(value > max) return color2
+
+	value = value - min
+	max = max - min
+	let multiplier = value / max
+
+	let r1 = parseInt(color1.substring(0, 2), 16)
+	let g1 = parseInt(color1.substring(2, 4), 16)
+	let b1 = parseInt(color1.substring(4, 6), 16)
+	let a1 = parseInt('FF', 16)
+	if(color1.length == 8) a1 = parseInt(color1.substring(6, 8), 16)
+
+	let r2 = parseInt(color2.substring(0, 2), 16)
+	let g2 = parseInt(color2.substring(2, 4), 16)
+	let b2 = parseInt(color2.substring(4, 6), 16)
+	let a2 = parseInt('FF', 16)
+	if(color2.length == 8) a2 = parseInt(color2.substring(6, 8), 16)
+
+	let r3 = Math.floor(r1 + ((r2 - r1) * multiplier))
+	let g3 = Math.floor(g1 + ((g2 - g1) * multiplier))
+	let b3 = Math.floor(b1 + ((b2 - b1) * multiplier))
+	let a3 = Math.floor(a1 + ((a2 - a1) * multiplier))
+
+	return leadingString(r3.toString(16), 2, '0') + leadingString(g3.toString(16), 2, '0') + leadingString(b3.toString(16), 2, '0') + leadingString(a3.toString(16), 2, '0')
+}
+
+function readColor(color) {
+	if(typeof(color) !== 'string') color = color.toString(16)
+	color = color.toUpperCase()
+	color = color.replace(/[^A-F0-9]/ig, '')
+
+	if(color.length == 1) {
+		return color.repeat(6)
+	}
+
+	if(color.length == 2) {
+		return color[0].repeat(6) + color[1].repeat(2)
+	}
+
+	if(color.length == 3) {
+		return color[0].repeat(2) + color[1].repeat(2) + color[2].repeat(2)
+	}
+
+	if(color.length == 4) {
+		return color[0].repeat(2) + color[1].repeat(2) + color[2].repeat(2) + color[3].repeat(2)
+	}
+
+	if(color.length == 6) {
+		return color
+	}
+
+	if(color.length == 8) {
+		return color
+	}
+
+	console.log('Invalid color!', color)
+	return 'F0F'
+}
+
+
 
 // -------------------- MESSAGES --------------------
 // -------------------- MESSAGES --------------------
@@ -56,6 +182,46 @@ function printError(message) {
 		console.trace()
 		throw arguments.length + pluralize(' Error', arguments.length) + ': ' + arguments.join(', ')
 	}
+}
+
+
+
+// -------------------- FILE SIZES --------------------
+// -------------------- FILE SIZES --------------------
+
+function reduceFileSize(size, betterColorSpectrum = true) {
+	// size must be in BYTES
+
+	let iterations = 0
+	let divisionUnits = 1024
+	while(size > divisionUnits && iterations < fileSizeDenominations.length) {
+		if(betterColorSpectrum && iterations > 2) break		// We'll finish this down below
+		size /= divisionUnits
+		iterations += 1
+	}
+
+	size = Math.round(size * 1000) / 1000
+
+	let denomination = fileSizeDenominations[iterations]
+
+	let temp = size
+	if(betterColorSpectrum && iterations > 2) {
+		divisionUnits = 5
+		while(temp > divisionUnits && iterations < fileSizeColors.length) {
+			// If we're above the GiB range, change colors every 10
+			temp /= divisionUnits
+			iterations += 1
+		}
+	}
+
+
+	let color1 = fileSizeColors[iterations]
+	let color2 = fileSizeColors[iterations]
+	if(iterations + 1 < fileSizeColors.length) {
+		color2 = fileSizeColors[iterations + 1]
+	}
+
+	return { 'size' : size, 'denomination' : denomination, 'iterations' : iterations, 'color' : interpolateHexColorInRange(0, divisionUnits, temp, color1, color2) }
 }
 
 
@@ -225,9 +391,43 @@ function randIntRange(min, max) {
 // -------------------- STRINGS --------------------
 // -------------------- STRINGS --------------------
 
-function pluralize(word, number) {
-	if(number == 1) return word
-	return word + 's'
+function pluralize(words, number) {
+	// words must be an array of [ singular, plural ]
+	if(number == 1) return words[0]
+	return words[1]
+}
+
+function leadingString(number, spaces, spacerString = ' ') {
+	// Akin to leadingSpaces or leadingZeroes. This is meant to align monospaced numbers by their decimal points
+
+	output = number
+
+	if(typeof(number) == String) {
+		number = parseFloat(number)
+	}
+	number = number.toString()
+	number = number.split('.')[0]
+
+	return spacerString.repeat(spaces - number.length) + output
+}
+
+function tailingString(number, spaces, spacerString = ' ') {
+	// Akin to tailingSpaces or tailingZeroes. This is meant to align monospaced numbers by their decimal points
+
+	output = number
+
+	if(typeof(number) == String) {
+		number = parseFloat(number)
+	}
+	number = number.toString()
+	number = number.split('.')
+	if(number.length == 1) {
+		return output + spacerString.repeat(spaces + 1)
+	} else {
+		number = number[1]
+	}
+
+	return output + spacerString.repeat(spaces - number.length)
 }
 
 function repeatText(inputText, repeats)
@@ -246,6 +446,14 @@ function repeatText(inputText, repeats)
 
 function escapeSingleQuotes(inputString) {
 	return inputString.replace("'", "\\\'")
+}
+
+function randomString(length, mask = 'qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM') {
+	let output = ''
+	for(let i = 0; i < length; i++) {
+		output = output + mask[Math.floor(Math.random() * mask.length)]
+	}
+	return output
 }
 
 
@@ -783,3 +991,129 @@ function hslToRgb(h, s, l, o = 1) {
 
 
 
+// -------------------- FUN STUFF --------------------
+// -------------------- FUN STUFF --------------------
+
+function generateStarCanvasURL(canvasWidth, canvasHeight, starCount, starColor, starIntensityMin, starIntensityMax) {
+	// There is a bug in Chrome that randomly causes the canvas to have a black background
+
+	let starfield = document.createElement('canvas');
+	if(starCount < 1) starCount = 1
+
+	starfield.width = canvasWidth
+	starfield.height = canvasHeight
+
+	let ctx = starfield.getContext('2d')
+
+	let starLocation = {}
+	let gradient = {}
+	for(let i = 0; i < starCount; i++) {
+		starLocation = { 'x' : randFloatRange(2, starfield.width - 2), 'y' : randFloatRange(2, starfield.height - 2) }
+
+		// Inner circle x, y, radius, outer circle x, y, radius
+		gradient = ctx.createRadialGradient(starLocation.x, starLocation.y, starIntensityMin, starLocation.x, starLocation.y, randFloatRange(starIntensityMin, starIntensityMax));
+
+		// Add the color stops
+		gradient.addColorStop(0, '#' + starColor + 'AA')
+		gradient.addColorStop(randFloatRange(starIntensityMin, starIntensityMax), '#' + starColor + '00');
+
+		// Set the fill style and draw a rectangle
+		ctx.fillStyle = gradient
+		ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+	}
+
+	return starfield.toDataURL()
+}
+
+function renderStarscape(renderElement, starCount = 300, layers = 5, backgroundColor = '000', starColor = 'FFF', scrollLeftOrRight = 1, scrollUpOrDown = 0, scrollSpeed = 20) {
+	let defaultStyle = { 'width' : '100%', 'height' : '100%', 'margin' : '0px' }
+	let renderChild = createElement({ 'elementType' : 'div', 'style' : defaultStyle, 'children' : [] })
+
+	let savedElements = []
+	for (let i = renderElement.children.length - 1; i >= 0; i--)
+	{
+		let c = renderElement.children[i]
+		savedElements.unshift(c)
+		renderElement.removeChild(c)
+	}
+
+//	renderElement.style.position = 'relative'	// This causes issues with the parent element if it is the body element...
+	renderElement.style.backgroundColor = '#' + backgroundColor
+
+	defaultStyle.position = 'absolute'
+	defaultStyle.padding = '0px'
+
+	scrollSpeed = clamp(scrollSpeed, 1, 500)	// Prevent division by 0 below and restrict this to it's max value
+
+	// Colors
+	backgroundColor = readColor(backgroundColor)
+	starColor = readColor(starColor)
+
+	let starIntensityMin = 0.25
+	let starIntensityMax = 0.85
+	let starIntensityVariance = 0.1
+
+	// Sizes
+	let layerSizeMultiplier = 100
+	let layerBaseSize = 5 * layerSizeMultiplier		// Do not change this or animations will look awful
+	let canvasSizeXMax = 0
+	let canvasSizeXMin = 0
+	let canvasSizeYMax = 0
+	let canvasSizeYMin = 0
+
+	let starSizeMin = 0.5
+	let starSizeMax = 1
+
+	let gradientSizeMin = 1
+	let gradientSizeMax = 10
+
+	let animationName = ''
+
+	let canvasSize = {}
+	let starIntensity = starIntensityMax
+	let layerMultiplier = 1
+	let renderChildID = randomString(75)
+	for(let currentLayer = 1; currentLayer <= layers; currentLayer++) {
+		let newElement = { 'elementType' : 'div', 'style' : defaultStyle }
+		newElement.style.zIndex = currentLayer * -1
+
+		if(currentLayer == 1) newElement.id = renderChildID
+
+		canvasSizeXMax = (layers - currentLayer + 1) * layerSizeMultiplier + layerBaseSize
+		canvasSizeXMin = canvasSizeXMax
+		canvasSizeYMax = (layers - currentLayer + 1) * layerSizeMultiplier + layerBaseSize
+		canvasSizeYMin = canvasSizeYMax
+
+		layerMultiplier = 1 / layers * currentLayer * 0.5 + 0.5
+		animationName = randomString(50) + layers + currentLayer
+
+		canvasSize = { 'x' : randFloatRange(canvasSizeXMin, canvasSizeXMax), 'y' : randFloatRange(canvasSizeYMin, canvasSizeYMax) }
+		newElement.style.backgroundImage = 'url(' + generateStarCanvasURL(canvasSize.x, canvasSize.y, Math.floor(starCount / layers), starColor, starIntensity - starIntensityVariance, starIntensity + starIntensityVariance) + ')'
+		newElement.style.animation = animationName + ' ' + 500 / scrollSpeed * layerMultiplier + 's linear infinite'
+		newElement.style.top = '0px'
+		newElement.style.left = '0px'
+
+		starIntensity = clamp(((starIntensityMax - starIntensityMin) / layers * currentLayer) + starIntensityMin, starIntensityVariance + 0.001, 1 - starIntensityVariance - 0.001)
+		renderElement.appendChild(createElement(newElement))
+
+		if(scrollLeftOrRight != 0 || scrollUpOrDown != 0) {
+			let horizontalScroll = '0%'
+			let verticalScroll = '0%'
+			if(scrollLeftOrRight < 0) {
+				horizontalScroll = canvasSize.x + 'px'
+			} else if(scrollLeftOrRight > 0) {
+				horizontalScroll = '-' + canvasSize.x + 'px'
+			}
+			if(scrollUpOrDown < 0) {
+				verticalScroll = canvasSize.y + 'px'
+			} else if(scrollUpOrDown > 0) {
+				verticalScroll = '-' + canvasSize.y + 'px'
+			}
+			renderElement.appendChild(createElement({ 'elementType' : 'style', 'text' : '@keyframes ' + animationName + ' {0% { background-position: 0px 0px; } 100% { background-position: ' + horizontalScroll + ' ' + verticalScroll + ' } }' }))
+		}
+	}
+
+	for(let i = 0; i < savedElements.length; i++) {
+		renderElement.appendChild(savedElements[i])
+	}
+}
