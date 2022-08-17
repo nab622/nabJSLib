@@ -150,7 +150,7 @@ function readColor(color) {
 		return color
 	}
 
-	console.log('Invalid color!', color)
+	console.log('Invalid color: \'' + color + '\'')
 	return 'F0F'
 }
 
@@ -162,9 +162,9 @@ function readColor(color) {
 function printWarning(message) {
 	warningCount++
 
-	console.log('Warning: ' + message)
+//	console.log('Warning: ' + message)
 	for(let i = 1; i < arguments.length; i++) {
-		console.log('Warning ' + warningCount + ': ', arguments[i])
+		console.log('Warning ' + warningCount + ': ' + message, arguments[i])
 	}
 	if(debug) {
 		console.trace()
@@ -174,9 +174,9 @@ function printWarning(message) {
 function printError(message) {
 	errorCount++
 
-	console.log('Error: ' + message)
+//	console.log('Error: ' + message)
 	for(let i = 1; i < arguments.length; i++) {
-		console.log('Error ' + errorCount + ': ', arguments[i])
+		console.log('Error ' + errorCount + ': ' + message, arguments[i])
 	}
 	if(debug) {
 		console.trace()
@@ -391,6 +391,16 @@ function randIntRange(min, max) {
 // -------------------- STRINGS --------------------
 // -------------------- STRINGS --------------------
 
+function ucwords(inputString) {
+	// This function makes the first letter of every word uppercase
+
+	let temp = inputString.split(' ')
+	for(let i = 0; i < temp.length; i++) {
+		temp[i] = temp[i].charAt(0).toUpperCase() + temp[i].substring(1)
+	}
+	return temp.join(' ')
+}
+
 function pluralize(words, number) {
 	// words must be an array of [ singular, plural ]
 	if(number == 1) return words[0]
@@ -407,6 +417,8 @@ function leadingString(number, spaces, spacerString = ' ') {
 	}
 	number = number.toString()
 	number = number.split('.')[0]
+
+	if(spaces - number.length < 1) return output.toString()
 
 	return spacerString.repeat(spaces - number.length) + output
 }
@@ -991,8 +1003,8 @@ function hslToRgb(h, s, l, o = 1) {
 
 
 
-// -------------------- FUN STUFF --------------------
-// -------------------- FUN STUFF --------------------
+// -------------------- STARSCAPE --------------------
+// -------------------- STARSCAPE --------------------
 
 function generateStarCanvasURL(canvasWidth, canvasHeight, starCount, starColor, starIntensityMin, starIntensityMax) {
 	// There is a bug in Chrome that randomly causes the canvas to have a black background
@@ -1008,7 +1020,7 @@ function generateStarCanvasURL(canvasWidth, canvasHeight, starCount, starColor, 
 	let starLocation = {}
 	let gradient = {}
 	for(let i = 0; i < starCount; i++) {
-		starLocation = { 'x' : randFloatRange(2, starfield.width - 2), 'y' : randFloatRange(2, starfield.height - 2) }
+ 		starLocation = { 'x' : randFloatRange(0, starfield.width), 'y' : randFloatRange(0, starfield.height) }
 
 		// Inner circle x, y, radius, outer circle x, y, radius
 		gradient = ctx.createRadialGradient(starLocation.x, starLocation.y, starIntensityMin, starLocation.x, starLocation.y, randFloatRange(starIntensityMin, starIntensityMax));
@@ -1116,4 +1128,627 @@ function renderStarscape(renderElement, starCount = 300, layers = 5, backgroundC
 	for(let i = 0; i < savedElements.length; i++) {
 		renderElement.appendChild(savedElements[i])
 	}
+}
+
+
+
+// -------------------- SUPERTEXT MARKUP --------------------
+// -------------------- SUPERTEXT MARKUP --------------------
+
+superTextMarkupTags = [
+	// Anything in the parameters object will be SuperImposed on the created element. Even elementType is okay to change
+	// 'parameters' are automatically applied styles
+	// 'variables' are things the user can set, like URL links and such, inside the declaring tag, like: "[url link='page.php']Link Text Here[/url]"
+	// noText : true		means that even if the user put text in the tag, it will be ignored (Useful for things like images)
+	// nest : true			means that everything contained within that tag will be a child
+	// noClosingTag : true	means that the parser will not require a closing tag on this element. Uses are things like [br] or [hr]
+	// noMarkup : true	means that the contents of this tag will not be parsed.		BE AWARE THIS IS BUGGED - If you use it on a nested element, it will terminate along with the parent!!
+	// The following are global properties that can be used on any tag:
+	//		fg			=	text color
+	//		bg			=	background color
+	//		font		=	Typeface
+	//		size		=	Font size (Percent, range from 10-500%)
+	//		nomarkup	= 	No other tags inside this tag will be parsed
+
+	// All 'symbol' values correspond to characters in the 'WebHostingHub Glyphs' font. These are intended to be used in a text editor to represent each function.
+
+	{ tag : 'b',
+						description: 'Bold',
+						symbol : '',
+						parameters : { style : { fontWeight : 'bold' } }
+	},
+	{ tag : 'i',
+						description: 'Italic',
+						symbol : '',
+						parameters : { style : { fontStyle : 'italic' } }
+	},
+	{ tag : 'u',
+						description: 'Underline',
+						symbol : '',
+						parameters : { style : { textDecoration : 'underline' } }
+	},
+	{ tag : 's',
+						description: 'Strikethrough',
+						symbol : '',
+						parameters : { style : { textDecoration : 'line-through' } }
+	},
+	{ tag : 'br',
+						description: 'Line break',
+						symbol : '',
+						noClosingTag : true,
+						noText : true,
+						parameters : { elementType : 'br' }
+	},
+	{ tag : 'hr',
+						description: 'Horizontal Line',
+						symbol : '−',
+						noClosingTag : true,
+						noText : true,
+						parameters : { elementType : 'hr' }, variables : { width : 'width' }
+	},
+	{ tag : 'url',
+						description: 'Hyperlink',
+						symbol : '',
+						nest : true,
+						variables : { href : 'link' },
+						parameters : { elementType : 'a' }
+	},
+	{ tag : 'img',
+						description: 'Image',
+						symbol : '⊷ ',
+						noText : true,
+						variables : { src : 'src' },
+						parameters : { elementType : 'img' }
+	},
+	{ tag : 'c',
+						description: 'Block text and center align',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { width: '100%', textAlign : 'center', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'l',
+						description: 'Block text and left align',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { width: '100%', textAlign : 'left', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'r',
+						description: 'Block text and right align',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { width: '100%', textAlign : 'right', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'j',
+						description: 'Block text and justify',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { width: '100%', textAlign : 'justify', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'h1',		description: 'Heading 1',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { fontSize : '3em', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'h2',
+						description: 'Heading 2',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { fontSize : '2.66em', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'h3',
+						description: 'Heading 3',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { fontSize : '2.33em', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'h4',
+						description: 'Heading 4',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { fontSize : '2em', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'h5',
+						description: 'Heading 5',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { fontSize : '1.75em', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'h6',
+						description: 'Heading 6',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { fontSize : '1.5em', marginTop : '0px', marginBottom : '0px' } },
+	},
+	{ tag : 'ol',
+						description: 'Ordered list',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'ol' }
+	},
+	{ tag : 'ul',
+						description: 'Unordered list',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'ul' }
+	},
+	{ tag : 'li',
+						description: 'List item',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'li' }
+	},
+	{ tag : 'sub',
+						description: 'Subscript',
+						symbol : '',
+						nest : true,
+						parameters : { style : { verticalAlign : 'sub', fontSize : '0.75em' } }
+	},
+	{ tag : 'sup',
+						description: 'Superscript',
+						symbol : '',
+						nest : true,
+						parameters : { style : { verticalAlign : 'super', fontSize : '0.75em' } }
+	},
+	{ tag : 'color',
+						description: 'Text/background color',
+						symbol : '',
+	},
+	{ tag : 'font',
+						description: 'Switch typeface',
+						symbol : '',
+	},
+	{ tag : 'size',
+						description: 'Font size (Percent, 10 to 500)',
+						symbol : '',
+	},
+	{ tag : 'code',
+						description: 'Code snippet, no markup',
+						symbol : '',
+						noMarkup : true,
+						parameters : { elementType : 'pre', style : { textAlign : 'left', fontFamily : '"nabfonts monospace", monospace', whiteSpace : 'break-spaces', backgroundColor : '#222', backgroundImage : 'linear-gradient(45deg, #7770 0%, #7770 49%, #7771 48.1%, #7771 51.9%, #7770 52%, #7770 100%)', backgroundRepeat : 'repeat', backgroundPosition: 'center', backgroundSize : '6px 6px', padding : '0.2em', border : '2px inset #333' } }
+	},
+	{ tag : 'quote',
+						description: 'Quote, include markup',
+						symbol : '',
+						nest : true,
+						parameters : { elementType : 'p', style : { textAlign : 'justify', backgroundColor : '#292929', backgroundImage : 'linear-gradient(135deg, #7770 0%, #7770 49%, #7771 48.1%, #7771 51.9%, #7770 52%, #7770 100%)', backgroundRepeat : 'repeat', backgroundPosition: 'center', backgroundSize : '6px 6px', padding : '0.2em', border : '2px inset #393939' } }
+	},
+	{ tag : 'nomarkup',
+						description: 'Ignore markup',
+						symbol : '',
+						noMarkup : true
+	},
+]
+
+// Tags really should be forced to lower case for efficiency down below
+for(let i = 0; i < superTextMarkupTags.length; i++) { superTextMarkupTags[i].tag = superTextMarkupTags[i].tag.toLowerCase() }
+// This array *MUST* be sorted and then reversed, or tags can get mismatched!
+superTextMarkupTags.sort((a, b)=>{
+	if (a.tag < b.tag) return -1
+	if (a.tag > b.tag) return 1
+	return 0
+}).reverse()
+
+smileyFaces = [
+	// All 'replacement' values are done in superTextMarkup. The resulting text from this process is destined for that next.
+	{ text : '[:)]',			font : 'webhostinghub glyphs',		color : 'ff0',		character : '',		description : 'Smile' },
+	{ text : '[;)]',			font : 'webhostinghub glyphs',		color : 'ff0',		character : '',		description : 'Wink' },
+	{ text : '[:D]',			font : 'webhostinghub glyphs',		color : 'ff0',		character : '',		description : 'Grin' },
+	{ text : '[XD]',			font : 'webhostinghub glyphs',		color : 'ff0',		character : '',		description : 'Eyes closed grin' },
+	{ text : '[>:D]',			font : 'webhostinghub glyphs',		color : 'a00',		character : '',		description : 'Evil grin' },
+	{ text : '[:P]',			font : 'webhostinghub glyphs',		color : 'ff0',		character : '',		description : 'Stick tongue out' },
+	{ text : '[;P]',			font : 'webhostinghub glyphs',		color : 'ff0',		character : '',		description : 'Wink with tongue out' },
+	{ text : '[XP]',			font : 'webhostinghub glyphs',		color : 'ff0',		character : '',		description : 'Eyes closed tongue out' },
+	{ text : '[:(]',			font : 'webhostinghub glyphs',		color : 'bb5',		character : '',		description : 'Frown' },
+	{ text : '[X(]',			font : 'webhostinghub glyphs',		color : 'bb5',		character : '',		description : 'Eyes closed frown' },
+	{ text : '[o.0]',			font : 'webhostinghub glyphs',		color : 'ff0',		character : '',		description : 'Surprised or confused' },
+	{ text : '[:\'(]',			font : 'webhostinghub glyphs',		color : '3bf',		character : '',		description : 'Crying' },
+	{ text : '[zzz]',			font : 'webhostinghub glyphs',		color : '9cf',		character : '',		description : 'Sleeping' },
+	{ text : '[<3]',			font : 'webhostinghub glyphs',		color : 'f00',		character : '',		description : 'Heart' },
+//	{ text : '[trollface]',		font : 'memetica',					color : 'fff',		character : 'T',	size : '200',		description : 'Trollface' },
+]
+
+function addSmileyFaces(inputText) {
+	let fontList = []
+
+	for(let i = 0; i < smileyFaces.length; i++) {
+		if(smileyFaces[i].hasOwnProperty('font')) fontList = joinArraysNoDuplicates(fontList, [ smileyFaces[i].font.toLowerCase() ])
+	}
+
+	for(let i = 0; i < fontList.length; i++) {
+		if(getFontIndex(fontList[i]) === false) {
+			// getFontIndex() will print an error if the font is not found
+			fontList.splice(i, 1)
+			i--
+		}
+	}
+
+	if(fontList.length == 0) return inputText		// Terminate if no fonts are present
+
+	for(let i = 0; i < smileyFaces.length; i++) {
+		if(!fontList.includes(smileyFaces[i].font)) {
+			printWarning('Missing font: ' + smileyFaces[i].font)
+			continue
+		}
+
+		let formatting = []
+		if(smileyFaces[i].hasOwnProperty('font')) formatting.push('font="' + smileyFaces[i].font + '"')
+		if(smileyFaces[i].hasOwnProperty('color')) formatting.push('fg=' + smileyFaces[i].color)
+		if(smileyFaces[i].hasOwnProperty('size')) formatting.push('size=' + smileyFaces[i].size)
+
+		while(inputText.indexOf(smileyFaces[i].text) >= 0) {
+			inputText = inputText.replace(smileyFaces[i].text, '[font ' + formatting.join(' ') + ']' + smileyFaces[i].character + '[/font]')
+		}
+	}
+
+	return inputText
+}
+
+function generateSuperTextElement(inputText, preprocessorInfo) {
+	let output = { elementType : 'span', text : inputText, style : {} }
+	let noMarkup = false
+
+	let parameters = []
+	if(preprocessorInfo.hasOwnProperty('markup')) {
+		parameters = preprocessorInfo.markup.slice(0)
+	}
+
+	if(preprocessorInfo.hasOwnProperty('children')) {
+		output.children = preprocessorInfo.children.slice(0)
+		output.text = ''	// Not sure about this..?
+	}
+
+	let variables = []
+	for(let i = 0; i < parameters.length; i++) {
+		if(parameters[i].hasOwnProperty('variables')) {
+			variables = parameters[i].variables
+		} else {
+			variables = []
+		}
+		for(let h = 0; h < superTextMarkupTags.length; h++) {
+			if(superTextMarkupTags[h].tag == parameters[i].tag) {
+				if(superTextMarkupTags[h].hasOwnProperty('noText') && superTextMarkupTags[h].noText === true) {
+					output.text = ''
+				}
+
+				if(noMarkup == false) {
+					if(superTextMarkupTags[h].hasOwnProperty('parameters')) {
+						for(parameter in superTextMarkupTags[h].parameters) {
+							if(parameter.toLowerCase() == 'style') {
+								// Apply styles here without overwriting anything
+								for(styleKey in superTextMarkupTags[h].parameters.style) {
+									if(output.style.hasOwnProperty(styleKey)) {
+										output.style[styleKey] += ' ' + superTextMarkupTags[h].parameters.style[styleKey]
+									} else {
+										output.style[styleKey] = superTextMarkupTags[h].parameters.style[styleKey]
+									}
+								}
+							} else {
+								output[parameter] = superTextMarkupTags[h].parameters[parameter]
+							}
+						}
+					}
+					if(superTextMarkupTags[h].hasOwnProperty('variables')) {
+						for(variable in superTextMarkupTags[h].variables) {
+							if(variables.hasOwnProperty(superTextMarkupTags[h].variables[variable])) {
+								output[variable] = variables[superTextMarkupTags[h].variables[variable]]
+								if(superTextMarkupTags[h].tag == 'url' && variable == 'href' && output[variable].toLowerCase().substr(0, 4) == 'http') {
+									// External link! Open in new tab/window
+									output.target = '_blank'
+								}
+							} else {
+								output[variable] = inputText
+							}
+						}
+					}
+
+					// Handle global options here, like colors and fonts, since they can apply to any tag
+					for(key in variables) {
+						let temp = key.toLowerCase()
+						switch(temp) {
+							case 'nomarkup':
+							case 'notags':
+								noMarkup = true
+								break
+
+							case 'color':
+							case 'fgcolor':
+							case 'fg':
+							case 'text':
+								temp = 'color'
+								if(output.elementType == 'hr') {
+									temp = 'borderColor'
+								}
+								output.style[temp] = '#' + readColor(variables[key])
+								break
+
+							case 'backgroundcolor':
+							case 'highlight':
+							case 'bgcolor':
+							case 'bg':
+								temp = 'backgroundColor'
+								output.style[temp] = '#' + readColor(variables[key])
+								break
+
+							case 'font':
+							case 'fontfamily':
+							case 'font-family':
+							case 'type':
+								temp = 'fontFamily'
+								let newFont = variables[key].toLowerCase()
+								if(typeof(customFonts) !== 'undefined') {
+									switch(newFont) {
+										case 'serif':
+										case 'sans-serif':
+										case 'cursive':
+										case 'fantasy':
+										case 'monospace':
+											newFont = 'nabfonts ' + newFont
+											break
+									}
+								}
+
+								output.style[temp] = "'" + newFont + "'"
+								break
+
+							case 'size':
+							case 'fontsize':
+								temp = 'fontSize'
+								output.style[temp] = (clamp(variables[key].replace(/\D/g,''), 10, 500) / 100) + 'em'
+								break
+						}
+					}
+				}
+				break	// Found matching tag in the tags array, no reason to continue
+			}
+		}
+	}
+
+	return output
+}
+
+function processTagInfo(startLoc, inputText, activeMarkups, noMarkup = false) {
+	// startLoc must be the location of the opening '['
+
+	if(activeMarkups.length < 1) noMarkup = false	// Force this if the markup array is empty
+
+	let loc = startLoc
+	while(loc < inputText.length && (inputText[loc] == '[' || inputText[loc] == ' ' )) {
+		loc++
+	}
+
+	if(inputText[loc] == '/') {
+		// Closing tag
+		loc++
+		let endLoc = inputText.indexOf(']', loc)
+		let tagName = inputText.substring(loc, endLoc).trim().toLowerCase()
+		if(noMarkup) {
+			if(tagName != activeMarkups[activeMarkups.length - 1].tag) {
+				return false
+			}
+		}
+		return { openingTag : false, endLoc : endLoc, tagInfo : { tag : tagName } }
+	}
+
+	if(noMarkup) return false
+
+	let parameters = []
+	let currentParam = ''
+	let quoteNum = 0	// 0 == no quotes, 1 == single quotes, 2 == double quotes
+	while(loc < inputText.length) {
+		let temp = inputText[loc]
+		if(temp == '\\' && loc + 1 < inputText.length) {
+			// Allow escaped characters - spaces, quotes, double quotes, etc
+			if(	inputText[loc + 1] == "'" &&
+				inputText[loc + 1] == '"' &&
+				inputText[loc + 1] == ' '
+			) {
+				currentParam = currentParam + temp
+				loc += temp.length
+				continue
+			}
+		}
+		if(quoteNum == 1) {
+			if(temp == "'") quoteNum = 0
+		} else if(quoteNum == 2) {
+			if(temp == '"') quoteNum = 0
+		} else if(quoteNum < 1) {
+			if(temp == "'") {
+				quoteNum = 1
+			} else if(temp == '"') {
+				quoteNum = 2
+			} else if(temp == ' ') {
+				// New parameter!
+				parameters.push(currentParam)
+				currentParam = ''
+				temp = ''
+				loc++	// Force to go past the space
+				continue
+			} else if(temp == ']') {
+				parameters.push(currentParam)
+				break
+			}
+		}
+		currentParam = currentParam + temp
+		loc += temp.length
+	}
+
+	if(loc >= inputText.length) {
+		// Malformed code! Must terminate.
+		return false
+	}
+
+	let tagName = parameters.shift().toLowerCase()
+	if(getTagData(tagName) === false) {
+		// Did not match a tag! Terminate.
+		return false
+	}
+
+	let outputVariables = {}
+	for(let i = 0; i < parameters.length; i++) {
+		let paramLoc = 0
+		let paramKey = ''
+		let paramValue = ''
+
+		let j = 0
+		for(j = 0; j < parameters[i].length; j++){
+			if(parameters[i][j] == '=') break
+		}
+
+		paramKey = parameters[i].substr(0, j).toLowerCase()
+		if(paramKey == '') continue
+		paramValue = parameters[i].substr(j + 1)
+
+		let quote = ''
+		if(paramValue[0] == '"' || paramValue[0] == "'") {
+			quote = paramValue[0]
+			paramValue = paramValue.substr(1)
+		}
+
+		j = paramValue.length
+		if(paramValue[j - 1] == quote) {
+			if((j > 2 && paramValue[j - 2] == '\\')) {
+				paramValue = paramValue.substr(0, j - 2)
+			} else {
+				paramValue = paramValue.substr(0, j - 1)
+			}
+		}
+
+		outputVariables[paramKey] = paramValue
+	}
+
+	if(loc < 0) loc = inputText.length
+
+	return { openingTag : true, endLoc : loc, tagInfo : { tag : tagName, parameters : getTagData(tagName), variables : outputVariables } }
+}
+
+function getTagData(tag) {
+	tag = tag.toLowerCase()
+	for(let i = 0; i < superTextMarkupTags.length; i++) {
+		if(tag == superTextMarkupTags[i].tag) return superTextMarkupTags[i]
+	}
+	return false
+}
+
+function superTextMarkup(inputText, addSmilies = true, loc = 0, activeMarkups = [], terminateRecursionOnTag = '', recursions = 0) {
+	// This function takes text as input, and returns an array of objects ready to be rendered by createElement()
+	// To render the output, apply it as a child to another element, and call createElement() on it
+	// Like this:
+	// createElement({ elementType : 'span', children : superTextMarkup(inputText) })
+
+	let preprocessor = [{ markup : activeMarkups.slice(0), startPoint : loc }]
+
+	if(recursions === 0) {
+		inputText = inputText.replace(new RegExp("\n", 'g'), '[br]')		// Change line breaks to the correct formatting
+		if(addSmilies === true) inputText = addSmileyFaces(inputText)
+	}
+
+	let terminate = false
+	let nomarkup = false
+	for(loc; terminate == false && loc >= 0 && loc < inputText.length; loc++) {
+		loc = inputText.indexOf('[', loc)
+		if(loc < 0) break
+		let result = processTagInfo(loc, inputText, activeMarkups, nomarkup)
+
+		if(result === false) continue	// No tag here. Keep going
+
+		if(preprocessor.length > 0) preprocessor[preprocessor.length - 1].endPoint = loc
+
+		if(result.openingTag == true) {
+
+// **************************************************************** OPENING TAGS ****************************************************************
+
+			activeMarkups.push({ tag : result.tagInfo.tag, parameters : result.tagInfo.parameters, variables : result.tagInfo.variables })
+
+			loc = result.endLoc
+			preprocessor.push({ markup : activeMarkups.slice(0), startPoint : loc + 1 })
+
+			if((result.tagInfo.parameters.hasOwnProperty('noMarkup') && result.tagInfo.parameters.noMarkup === true) || result.tagInfo.variables.hasOwnProperty('nomarkup')) {
+				tagData = result.tagInfo
+				nomarkup = true
+			}
+
+			if(result.tagInfo.parameters.hasOwnProperty('noClosingTag') && result.tagInfo.parameters.noClosingTag === true) {
+				preprocessor[preprocessor.length - 1].endPoint = loc + 1
+				activeMarkups.pop()
+				preprocessor.push({ markup : activeMarkups.slice(0), startPoint : loc + 1 })
+				continue
+			}
+
+			if(result.tagInfo.parameters.hasOwnProperty('nest') && result.tagInfo.parameters.nest === true) {
+				preprocessor[preprocessor.length - 1].children = superTextMarkup(inputText, false, loc + 1, activeMarkups, activeMarkups.pop().tag, recursions + 1)
+				let nestedChildren = preprocessor[preprocessor.length - 1].children
+
+				if(nestedChildren[0].hasOwnProperty('text')) {
+					// FIXME: This is a bit hackish...it's intended to work for URLs so you don't always have to use 'link=' as a parameter
+					preprocessor[preprocessor.length - 1].endPoint = clamp(preprocessor[preprocessor.length - 1].startPoint + nestedChildren[0].text.length, 0, inputText.length - 1)
+				} else {
+					preprocessor[preprocessor.length - 1].endPoint = preprocessor[preprocessor.length - 1].startPoint
+				}
+
+				loc = nestedChildren[0].endPoint
+				if(loc <= preprocessor[preprocessor.length - 1].startPoint || loc >= inputText.length) {
+					// If we went backwards or stayed the same, then there's a malformed tag in the nested material and we likely went past the end. Terminate.
+					loc = inputText.length
+				} else {
+					preprocessor.push({ markup : activeMarkups.slice(0), startPoint : loc + 1 })
+				}
+			}
+
+		} else {
+
+// **************************************************************** CLOSING TAGS ****************************************************************
+
+			if(recursions > 0 && result.tagInfo.tag == terminateRecursionOnTag) {
+				terminate = true
+			}
+
+			for(let j = activeMarkups.length - 1; j >= 0; j--) {
+				if(activeMarkups[j].tag == result.tagInfo.tag) {
+					activeMarkups.splice(j, 1)
+					nomarkup = false	// This can't possibly be true any longer if we just closed a tag
+					if(loc > 0) {
+						preprocessor[preprocessor.length - 1].endPoint = loc	// Terminate the previous tag here
+					} else {
+						preprocessor[preprocessor.length - 1].endPoint = inputText.length - 1
+					}
+					loc = result.endLoc
+					preprocessor.push({ markup : activeMarkups.slice(0), startPoint : loc + 1 })
+					break
+				}
+			}
+
+// **********************************************************************************************************************************************
+
+		}
+	}
+
+	// Terminate the last tag here
+	if(recursions == 0) {
+		preprocessor[preprocessor.length - 1].endPoint = inputText.length
+	} else {
+		if(loc >= 0 && loc < inputText.length) {
+			preprocessor[preprocessor.length - 1].endPoint = loc - 1
+		} else {
+			preprocessor[preprocessor.length - 1].endPoint = inputText.length
+		}
+	}
+
+	let output = []
+	for(let i = 0; i < preprocessor.length; i++) {
+		output.push(generateSuperTextElement(inputText.substring(preprocessor[i].startPoint, preprocessor[i].endPoint), preprocessor[i] ))
+	}
+
+	if(recursions > 0) {
+		// Need to pass this back for recursions...
+		if(loc >= 0 && loc < inputText.length) {
+			let newIndex = inputText.indexOf(']', loc)
+			if(newIndex < 0) newIndex = inputText.length - 1
+			output[0].endPoint = newIndex
+		} else {
+			output[0].endPoint = loc
+		}
+	}
+
+	return output
 }
